@@ -8,9 +8,9 @@ GAM installation script.
 OPTIONS:
    -h      show help.
    -d      Directory where gam folder will be installed. Default is \$HOME/bin/
-   -o      OS we are running (linux, macos). Default is to detect your OS with "uname -s".
-   -a      Architecture to install (x86_64, x86_64_legacy, arm, arm64); only applies to Linux. Default is to detect your arch with "uname -m".
-   -b      OS version. Default is to detect on MacOS and Linux.
+   -o      OS we are running (linux, macos, FreeBSD). Default is to detect your OS with "uname -s".
+   -a      Architecture to install (amd64/x86_64, x86_64_legacy, arm, arm64); only applies to Linux and FreeBSD. Default is to detect your arch with "uname -m".
+   -b      OS version. Default is to detect on MacOS, FreeBSD and Linux.
    -l      Just upgrade GAM to latest version. Skips project creation and auth.
    -p      Profile update (true, false). Should script add gam command to environment. Default is true.
    -u      Admin user email address to use with GAM. Default is to prompt.
@@ -31,6 +31,7 @@ adminuser=""
 regularuser=""
 gam_x86_64_glibc_vers="2.31 2.27 2.23 2.19 2.15"
 gam_arm64_glibc_vers="2.31 2.27 2.23"
+gam_freebsd_vers="11004001"
 gam_macos_vers="10.15 10.14 10.13 10.12 10.11 10.10"
 
 while getopts "hd:a:o:b:lp:u:r:v:" OPTION
@@ -130,6 +131,24 @@ case $gamos in
         gamfile="linux-arm64-$useglibc.tar.xz";;
       *)
         echo_red "ERROR: this installer currently only supports x86_64 and arm64 Linux. Looks like you're running on $gamarch. Exiting."
+        exit
+    esac
+    ;;
+  [fF]ree[bB][sS][dD])
+    gamos="freebsd"
+    if [ "$osversion" == "" ]; then
+      this_freebsd_ver=$(uname -K)
+    else
+      this_freebsd_ver=$osversion
+    fi
+    echo "This FreeBSD has kernel version $this_freebsd_ver"
+    case $gamarch in
+      amd64)
+        gamfile="freebsd-amd64-$this_freebsd_ver.tar.xz";;
+      arm|arm64)
+        gamfile="freebsd-arm64-$this_freebsd_ver.tar.xz";;
+      *)
+        echo_red "ERROR: this installer currently only supports amd64 and arm64 FreeBSD. Looks like you're running on $gamarch. Exiting."
         exit
     esac
     ;;
@@ -257,6 +276,8 @@ if [ "$update_profile" = true ]; then
   if [ "$gamos" == "linux" ]; then
     update_profile "$HOME/.bash_aliases" 0 || update_profile "$HOME/.bash_profile" 0 || update_profile "$HOME/.bashrc" 0
     update_profile "$HOME/.zshrc" 0
+  elif [ "$gamos" == "freebsd" ]; then
+    update_profile "$HOME/.bash_aliases" 0 || update_profile "$HOME/.bash_profile" 0 || update_profile "$HOME/.bashrc" 0
   elif [ "$gamos" == "macos" ]; then
     update_profile "$HOME/.bash_aliases" 0 || update_profile "$HOME/.bash_profile" 0 || update_profile "$HOME/.bashrc" 0 || update_profile "$HOME/.profile" 1
     update_profile "$HOME/.zshrc" 1
@@ -282,7 +303,7 @@ fi
 config_cmd="config no_browser false"
 
 while true; do
-  read -p "Can you run a full browser on this machine? (usually Y for MacOS, N for Linux if you SSH into this machine) " yn
+  read -p "Can you run a full browser on this machine? (usually Y for MacOS, N for Linux/FreeBSD if you SSH into this machine) " yn
   case $yn in
     [Yy]*)
       break
